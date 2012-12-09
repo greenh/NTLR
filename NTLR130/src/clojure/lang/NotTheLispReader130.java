@@ -240,7 +240,7 @@ static private Object readNumber(PushbackReader r, char initch) {
 	for(; ;)
 		{
 		int ch = read1(r);
-		if(ch == -1 || isWhitespace(ch) || isMacro(ch))
+		if(ch == -1 || isWhitespace(ch) || isMacro(ch) || ch == ',')
 			{
 			unread(r, ch);
 			break;
@@ -293,11 +293,12 @@ static private int readUnicodeChar(PushbackReader r, int initch, int base, int l
 }
 
 static private Object interpretToken(String s) {
+	/*
 	if(s.equals("nil"))
 		{
 		return null;
 		}
-/*	else if(s.equals("true"))
+	else if(s.equals("true"))
 		{
 		return RT.T;
 		}
@@ -305,7 +306,7 @@ static private Object interpretToken(String s) {
 		{
 		return RT.F;
 		}
-*/	else if(s.equals("/"))
+	else */ if(s.equals("/"))
 		{
 		return SLASH;
 		}
@@ -944,6 +945,10 @@ public static class CharacterReader extends AFn{
 		if(ch == -1)
 			throw Util.runtimeException("EOF while reading character");
 		String token = readToken(r, (char) ch);
+		
+		// correct for commas-as-part-of-tokens gig
+		if (token.length() > 1 && token.charAt(token.length() - 1) == ',')
+			token = token.substring(0, token.length() - 1);
 		if(token.length() == 1)
 			return Character.valueOf(token.charAt(0));
 		else if(token.equals("newline"))
@@ -1094,6 +1099,18 @@ public static class MapReader extends AFn{
 	public Object invoke(Object reader, Object leftparen) {
 		PushbackReader r = (PushbackReader) reader;
 		Object[] a = readDelimitedList('}', r, true).toArray();
+		
+		// Elide extraneous commas from the putative map. Ugh...
+		ArrayList<Object> na = new ArrayList<Object>();
+		for (Object o : a) {
+			if (o instanceof Symbol
+					&& ((Symbol) o).getName().equals(",")) 
+				;
+			else 
+				na.add(o);
+		}
+		a = na.toArray();
+
 		if((a.length & 1) == 1)
 			throw Util.runtimeException("Map literal must contain an even number of forms");
 		return RT.map(a);
